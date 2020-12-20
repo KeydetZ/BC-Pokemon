@@ -17,11 +17,12 @@ def error(code, message):
     exit(code)
 
 
-def filter_moves_by_generation(this_poke, gen):
+def filter_moves_by_generation(moves, gen):
     """If generation is specified, filter out moves that don't belong to this generation"""
     if gen:
         # filter out moves that are not for the given generation
-        this_poke.moves = [x for x in this_poke.moves if gen in x.generations]
+        return [x for x in moves if gen in x.generations]
+    return moves
 
 
 def parse_arguments(mode, test_args):
@@ -94,7 +95,7 @@ def handle_pokemon_response(this_pokemon_json, req):
     # strip out unnecessary data by putting it into a model
     this_pokemon = Pokemon(this_pokemon_json)
     # check if we need additional filtering based on generation
-    filter_moves_by_generation(this_pokemon, req.generation)
+    this_pokemon.moves = filter_moves_by_generation(this_pokemon.moves, req.generation)
 
     # if there's no move after the filtering, this pokemon never appeared in this generation
     if len(this_pokemon.moves) == 0:
@@ -124,7 +125,7 @@ def handle_type_response(this_type_json, req):
             error(5, "unexpected error when sorting moves by popularity")
         this_pokemon = Pokemon(sub_res.json())
         # apply the generation filter
-        filter_moves_by_generation(this_pokemon, req.generation)
+        this_pokemon.moves = filter_moves_by_generation(this_pokemon.moves, req.generation)
         # increment cnt map, if this pokemon uses some of the known moves
         for move in this_pokemon.moves:
             move_name = move.name
