@@ -6,7 +6,7 @@ class PokeRequest:
         # the entity this request is querying
         self.entity = entity
         # the type of the input value: e.g. pokemon name
-        self.input_type = input_type,
+        self.input_type = input_type
         # the input value
         self.input_value = input_value
         # optional filtering on generation

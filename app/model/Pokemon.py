@@ -1,4 +1,4 @@
-from model.Move import Move
+from app.model.Move import Move
 
 
 class Pokemon:
