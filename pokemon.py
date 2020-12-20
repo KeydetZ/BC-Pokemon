@@ -1,5 +1,14 @@
+#!/usr/bin/env python3
+
 import argparse
 import requests
+
+from model.Pokemon import Pokemon
+from model.Type import Type
+from util.PokeRequest import PokeRequest
+
+# Show TOP K moves based on popularity
+TOP_K = 10
 
 
 def error(code, message):
@@ -7,119 +16,124 @@ def error(code, message):
     exit(code)
 
 
-def get_moves_from_pokemon_by_generation(this_poke, gen):
+def filter_moves_by_generation(this_poke, gen):
     if gen:
-        for m in this_poke["moves"]:
-            # get all generations (version_groups) that his move has been in
-            m["version_group_details"] = [x["version_group"]["name"] for x in m["version_group_details"]]
         # filter out moves that are not for the given generation
-        this_poke["moves"] = [x for x in this_poke["moves"] if gen in x["version_group_details"]]
-    return this_poke["moves"]
+        this_poke.moves = [x for x in this_poke.moves if gen in x.generations]
 
 
-# use argparse to simply argument parsing
-parser = argparse.ArgumentParser(description="A simple CLI using the RESTful pokemon API (https://pokeapi.co/) to "
-                                             "look up Pokemons.",
-                                 allow_abbrev=False)  # do not allow abbreviation
+def parse_arguments():
+    """Use argparse to simplify argument parsing.
+    :return parsed args"""
+    parser = argparse.ArgumentParser(description="A simple CLI using the RESTful pokemon API (https://pokeapi.co/) to "
+                                                 "look up Pokemons.",
+                                     allow_abbrev=False)  # do not allow abbreviation
+    # allow one and only one type of lookup: by [id, name, move_type]
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--lookup", help="Lookup by name or id")
+    group.add_argument("--move-type", type=str, help="Lookup by move type", dest="move_type")
+    # define optional arguments as filters
+    parser.add_argument("--generation", type=str, help="Filter result by Pokemon generation")
+    return parser.parse_args()
 
-# allow one and only one type of lookup: by [id, name, move_type]
-group = parser.add_mutually_exclusive_group(required=True)
-group.add_argument("--lookup", help="Lookup by name or id")
-group.add_argument("--move-type", type=str, help="Lookup by move type", dest="move_type")
 
-# define optional arguments as filters
-parser.add_argument("--generation", type=str, help="Filter result by Pokemon generation")
+def generate_poke_request(args):
+    """generate a request object that reflects the requested entity, input type & values, and other optional inputs"""
+    entity = None
+    input_type = None
+    input_value = None
+    generation = None
 
-args = parser.parse_args()
+    if args.lookup:
+        entity = "pokemon"
+        # assumption: no pokemon has numerical name ;)
+        # try to parse the input as integer; if it fails, use as string (pokemon name)
+        try:
+            input_value = int(args.lookup)
+            input_type = "pokemon id"
+        except ValueError:
+            # integer parsing fails. use the input as string
+            input_value = args.lookup
+            input_type = "pokemon name"
+    elif args.move_type:
+        entity = "type"
+        input_value = args.move_type
+        input_type = "move type"
+    else:
+        # unexpected: argparse should make sure at least one argument is passed in
+        error(2, "missing argument (--lookup | --move_type)")
 
-# initialize required properties
-pokemon_id = None
-pokemon_name = None
-move_type = None
-generation = None
+    # parse additional arguments for filtering
+    if args.generation:
+        generation = args.generation
 
-if args.lookup:
-    # TODO: verify length of the id returned by the API
-    # assumption: no pokemon has numerical name ;)
-    # try to parse the input as integer; if it fails, use as string (pokemon name)
-    try:
-        pokemon_id = int(args.lookup)
-    except ValueError:
-        # integer parsing fails. use the input as string
-        pokemon_name = args.lookup
+    return PokeRequest(entity, input_type, input_value, generation=generation)
 
-    # TODO: debug only
-    print(type(args.lookup), args.lookup, type(pokemon_id), pokemon_id, type(pokemon_name), pokemon_name)
 
-elif args.move_type:
-    move_type = args.move_type
-    print(move_type)
-else:
-    # unexpected: argparse should make sure at least one argument is passed in
-    error(2, "missing argument (--lookup | --move_type)")
+def process_poke_request(req):
+    url = poke_request.build_url()
+    res = requests.get(url)
+    # pass on the API error
+    if res.status_code != 200:
+        # report error on the input
+        error(3, "invalid {}: {}".format(req.input_type, req.input_value))
+    return res.json()
 
-# parse additional arguments for filtering
-if args.generation:
-    generation = args.generation
-    # TODO: debug only
-    print(generation)
 
-# business logic: lookup pokemon or top 10 commonly used moves
-# build a url based on entity that's being looked up
-url = "https://pokeapi.co/api/v2/{}/{}"
-
-if pokemon_name:
-    entity = "pokemon"
-    input_type = "pokemon name"
-    input_value = pokemon_name
-elif pokemon_id:
-    entity = "pokemon"
-    input_type = "pokedex"
-    input_value = pokemon_id
-else:  # move_type
-    entity = "type"
-    input_type = "move type"
-    input_value = move_type
-
-url = url.format(entity, input_value)
-res = requests.get(url)
-
-# pass on the API error
-if res.status_code != 200:
-    # report error on the input
-    error(3, "invalid {}: {}".format(input_type, input_value))
-
-if entity == "pokemon":
-    this_pokemon = res.json()
-
+def handle_pokemon_response(this_pokemon_json, req):
+    """Print the result for a pokemon request"""
+    # strip out unnecessary data by putting it into a model
+    this_pokemon = Pokemon(this_pokemon_json)
     # check if we need additional filtering based on generation
-    this_pokemon["moves"] = get_moves_from_pokemon_by_generation(this_pokemon, generation)
-
+    filter_moves_by_generation(this_pokemon, req.generation)
     # sort alphabetically
-    this_pokemon["moves"] = sorted(this_pokemon["moves"], key=lambda x: x["move"]["name"])
-
+    this_pokemon.moves = sorted(this_pokemon.moves, key=lambda x: x.name)
     # transform json into the output format
-    result = "name={}, pokedex={}, moves={}".format(this_pokemon["name"], this_pokemon["id"],
-                                                    [x["move"]["name"] for x in this_pokemon["moves"]])
-    print(result)
-else:  # move_type
-    this_type = res.json()
+    print(this_pokemon)
 
+
+def handle_type_response(this_type_json, req):
+    """Print the result for a move-type request"""
+    # print out a warning that this could take a while
+    print("Processing request... this could take up to 1 minute")
+    # strip out unnecessary data by putting it into a model
+    this_type = Type(this_type_json)
     # build a count map of moves, by requesting details of all pokemon with this type
     # NOTE: this could by expensive, because we're making 100+ requests at the same moment
-    move_cnt = dict.fromkeys([m["name"] for m in this_type["moves"]], 0)
-
-    # populate the map
-    for pokemon in this_type["pokemon"]:
-        sub_res = requests.get(pokemon["pokemon"]["url"])
+    move_cnt = dict.fromkeys([m for m in this_type.move_names], 0)
+    # populate the map by sending a request for every pokemon under this type
+    for pokemon in this_type.pokemon_name_url.items():
+        sub_res = requests.get(pokemon[1])  # get url
         if sub_res.status_code != 200:
             error(4, "unexpected error when sorting moves by popularity")
-        this_pokemon = sub_res.json()
-        this_pokemon["moves"] = get_moves_from_pokemon_by_generation(this_pokemon, generation)
-        for move in this_pokemon["moves"]:
-            move_name = move["move"]["name"]
+        this_pokemon = Pokemon(sub_res.json())
+        # apply the generation filter
+        filter_moves_by_generation(this_pokemon, req.generation)
+        # increment cnt map, if this pokemon uses some of the known moves
+        for move in this_pokemon.moves:
+            move_name = move.name
             if move_name in move_cnt:
                 move_cnt[move_name] += 1
 
-    # get top 10 moves
-    print([x[0] for x in sorted(move_cnt.items(), key=lambda item: item[1], reverse=True)][:10])
+    # get top K moves based on popularity
+    print("Top {} moves that are most commonly used:".format(TOP_K))
+    print([x[0] for x in sorted(move_cnt.items(), key=lambda item: item[1], reverse=True)][:TOP_K])
+
+
+if __name__ == '__main__':
+    # parse cmdline arguments. common user errors such as missing input is caught here
+    arguments = parse_arguments()
+
+    # build a request to reflect what the user is requesting for
+    poke_request = generate_poke_request(arguments)
+
+    # business logic: lookup pokemon or top 10 commonly used moves
+    res_json = process_poke_request(poke_request)
+
+    # route to different business logic based on requests
+    if poke_request.entity == "pokemon":
+        handle_pokemon_response(res_json, poke_request)
+    elif poke_request.entity == "move_type":
+        handle_type_response(res_json, poke_request)
+    else:
+        error(5, "{} lookup is not yet supported")
