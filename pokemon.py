@@ -3,9 +3,9 @@
 import argparse
 import requests
 
-from app.model.Pokemon import Pokemon
-from app.model.Type import Type
-from app.util.PokeRequest import PokeRequest
+from model.Pokemon import Pokemon
+from model.Type import Type
+from util.PokeRequest import PokeRequest
 
 # Show TOP K moves based on popularity
 TOP_K = 10

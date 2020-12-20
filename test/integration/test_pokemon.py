@@ -1,8 +1,7 @@
 import os
 import unittest
 from unittest import TestCase
-
-from app import pokemon
+import pokemon
 
 
 class PokemonTestIT(TestCase):

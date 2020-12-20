@@ -1,6 +1,6 @@
 from unittest import TestCase
-from app import pokemon
-from app.model.Move import Move
+import pokemon
+from model.Move import Move
 
 
 class PokemonUnitTest(TestCase):

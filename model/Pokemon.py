@@ -1,4 +1,4 @@
-from app.model.Move import Move
+from model.Move import Move
 
 
 class Pokemon:
@@ -9,8 +9,6 @@ class Pokemon:
         self.url = url
 
     def __repr__(self):
-        return """
-        name: {}
-        pokedex: {}
-        moves: {}
-        """.format(self.name, self.pokedex, self.moves)
+        return """name: {}
+pokedex: {}
+moves: {}""".format(self.name, self.pokedex, self.moves)
