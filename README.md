@@ -8,7 +8,7 @@ API (http://pokeapi.co/).
 
 * Download this source code into a working directory
 * install python3
-* install `pipenv`
+* [install `pipenv`](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
 * install dependencies: `pipenv sync`
 * switch to this environment: `pipenv shell`
 
@@ -62,3 +62,10 @@ Examples:
 The project contains an integration and unit test suite, implemented using the standard `unittest` runner.
 * `test/unit`
 * `test/integration`
+
+## Credit
+Some components of this project were made possible by the following blog posts and answers:
+1. Make HTTP request in Python: https://requests.readthedocs.io/en/master/
+2. Python `argparse` tutorial: https://docs.python.org/3/howto/argparse.html
+3. Unit & Integration test: http://euccas.github.io/blog/20160807/python-unittest-handle-command-line-arguments.html
+4. Dependency Management: https://pipenv.pypa.io/en/latest/

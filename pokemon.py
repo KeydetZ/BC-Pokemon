@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
+
 import requests
 
 from model.Pokemon import Pokemon
@@ -13,7 +15,7 @@ TOP_K = 10
 
 def error(code, message):
     """Print out an error message and exit with non-zero"""
-    print("unexpected error {}: {}".format(code, message))
+    print("unexpected error {}: {}".format(code, message), file=sys.stderr)
     exit(code)
 
 
